@@ -86,11 +86,7 @@ class 卷帘门(Component):
         canopy_color = [float(x) for x in self['罩壳颜色'].split(',')]
         bottom_rail_color = [float(x) for x in self['底部横梁颜色'].split(',')]
         
-        print(f"=== 卷帘门参数化建模 ===")
-        print(f"洞口尺寸: {door_width} x {door_height} mm")
-        print(f"帘片数量: {curtain_count}")
-        print(f"实际帘片高度: {actual_curtain_height:.1f} mm")
-        print(f"开启比例: {open_ratio:.2f}")
+      
         
         # 1. 侧导轨 (Side Guides)
         if self['轨道类型'] == '标准提升':
