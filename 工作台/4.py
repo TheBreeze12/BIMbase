@@ -15,7 +15,7 @@ class 转弯传送带(Component):
         self['皮带厚度']=Attr(20,obvious=True,group='皮带')
         self['滚筒直径']=Attr(40,obvious=True,group='滚筒')
         self['滚筒间距']=Attr(20,obvious=True,group='滚筒')
-        self['滚筒类型']=Attr("Straight",obvious=True,group='滚筒',combo=['Tapered', 'Straight'])# TODO
+        self['滚筒类型']=Attr("Straight",obvious=True,group='滚筒',combo=['Tapered', 'Straight'])
         self['驱动方式']=Attr('头部驱动',obvious=True,group='驱动',combo=['头部驱动','中心驱动'])
         self['电机功率(W)']=Attr(1000,obvious=True,group='驱动')
         self['传送速度(m/s)']=Attr(1,obvious=True,group='驱动')
@@ -81,38 +81,49 @@ class 转弯传送带(Component):
            
        # 滚筒阵列 : 如果传送带类型为滚筒，则此部件由一系列平行排列的滚筒组成。
         else:
-       # TODO:若为滚轮，则先创建一个滚筒子模型（滚筒直径，长度为Belt_Width）。然后，沿中心线弧路径，根据滚筒间距进行环形阵列，生成滚筒阵列。如果滚筒间距为Tapered，则滚筒应为锥形。
-       # 对于锥形滚筒，可以绘制一个梯形截面，然后进行旋转操作生成。锥度应经过计算，以确保在转弯时内外侧的线速度匹配，公式为：内侧直径/外侧直径 = 内侧半径/外侧半径。
-
-           roller_d=self['滚筒直径']
-           roller_r=roller_d/2
-           gap=self['滚筒间距']
-           roller_num=(int)(center_r*A/180*pi/(roller_d+gap))
-           cone1=trans(-roller_r,r-frame_t,0)*createRoller(roller_r,W,roller_r,frame_t,frame_h-roller_r)
-           cones = []
-           for i in linspace(0,A/180*pi,roller_num): 
-              cones.append(rotz(-i)*cone1)
-           承载面=Combine(cones)
-      
+            roller_d=self['滚筒直径']
+            roller_r=roller_d/2
+            gap=self['滚筒间距']
+            roller_num=(int)(center_r*A/180*pi/(roller_d+gap))
+            if self['滚筒类型']=="Straight":
+                cone1=trans(-roller_r,r-frame_t,0)*createRoller(roller_r,roller_r,W,roller_r,frame_t,frame_h-roller_r)
+                cones = []
+                for i in linspace(0,A/180*pi,roller_num+1): 
+                    cones.append(rotz(-i)*cone1)
+                承载面=Combine(cones)
+            else:
+                tempr=roller_r/R*r
+                roller_num=(int)(center_r*A/180*pi/((roller_d+tempr)/2+gap))
+                cone1=trans(-tempr,r-frame_t,0)*createRoller(tempr,roller_r,W,roller_r,frame_t,frame_h-roller_r)
+                cones = []
+                for i in linspace(0,A/180*pi,roller_num+1): 
+                    cones.append(rotz(-i)*cone1)
+                承载面=Combine(cones)
         # 3.头/尾滚筒总成
         Cone1=trans(0,r,frame_h/2)*Cone(Vec3(0,0,0),Vec3(0,W,0),frame_h*3/8,frame_h*3/8)
         Cone2=rotz(-A/180*pi)*Cone1
         头尾滚筒总成=Combine(Cone1,Cone2).color(0.1,0.2,0.3,1)
         
        # 4.支撑腿总成  仅在是否带支架为True时生成。通常为H型结构，可调节高度。
-        if self['是否带支架']:
-           # 获取尺寸字符串
-           size_str = self['支架型材尺寸']
-           length,width = size_str.split('*')
-           width_num = int(width)
-           length_num = int(length)
-           bracket_h=self['支架离地高度']
-           bracket_num=self['支架数量']
-           bracket_w=W+2*frame_t-width_num
-           brackets=trans(0,0,-bracket_h+100)*createBrackets(bracket_num,A,bracket_w,length_num,width_num,bracket_h,r-frame_t,center_r)
-           支撑架=Combine(brackets)        
+        # 获取尺寸字符串
+        size_str = self['支架型材尺寸']
+        length,width = size_str.split('*')
+        width_num = int(width)
+        length_num = int(length)
+        bracket_h=self['支架离地高度']
+        bracket_num=self['支架数量']
+        bracket_w=W+2*frame_t-width_num
+        brackets=trans(0,0,-bracket_h+100)*createBrackets(bracket_num,A,bracket_w,length_num,width_num,bracket_h,r-frame_t,center_r)
+        支撑架=Combine(brackets)        
         # 5.驱动单元
-        驱动单元=createMotor()
+        temp=trans(-frame_h/2,r-120-frame_t,-0.25*bracket_h)*\
+            createMotor(frame_h*2.4,120,frame_h+0.25*bracket_h,(frame_h+0.25*bracket_h)/4,frame_h,W/4)\
+                .color(0.3,0.3,0.3,1)
+        
+        if self['驱动方式']=="头部驱动":
+            驱动单元=rotz(-A/180*pi)*temp
+        else:
+            驱动单元=rotz(-A/180*pi/(bracket_num-1)/2)*temp
         
         self['转弯传送带']=Combine(框架总成,承载面,头尾滚筒总成,驱动单元)
         if self['是否带支架']:
@@ -123,8 +134,8 @@ def createFrame(r,t,h,A,isout):
     else:
         return RotationalSweep([Vec3(0,r,0),Vec3(0,r-t,0),Vec3(0,r-t,h),Vec3(0,r,h)],Vec3(0,0,0),Vec3(0,0,1),-A/180*pi)  
   
-def createRoller(roller_r,roller_w,x,y,z):
-        cone=trans(x,y,z)*Cone(Vec3(0,0,0),Vec3(0,roller_w,0),roller_r,roller_r)
+def createRoller(roller_r1,roller_r2,roller_w,x,y,z):
+        cone=trans(x,y,z)*Cone(Vec3(0,0,0),Vec3(0,roller_w,0),roller_r1,roller_r2)
         return cone
 
 def createBrackets(num,A,bracket_w,l,w,h,r,center_r):
@@ -147,9 +158,13 @@ def createBrackets(num,A,bracket_w,l,w,h,r,center_r):
     return Combine(brackets)
 
 
-def createMotor():
-    # TODO
-    return 
+def createMotor(l,w,h,r,frame_h,cone_l):
+    box1=scale(l,w,h)*Cube()
+    box2=trans(l-2*r,w-1,h-frame_h-2*r)*scale(2*r,w,2*r)*Cube()
+    r=r*0.8
+    cone1=trans(l-r,2*w-1,h-frame_h-r*1.2)*Cone(Vec3(0,0,0),Vec3(0,cone_l,0),r,r)
+    cone2=trans(l-r,2*w-1+cone_l,h-frame_h-r*1.2)*Cone(Vec3(0,0,0),Vec3(0,0.25*cone_l,0),r*1.2,r*1.2)
+    return Combine(box1+box2,cone1,cone2)
 
 if __name__=="__main__":
     fianl=转弯传送带()
