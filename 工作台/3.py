@@ -16,9 +16,9 @@ class 直线传送带(Component):
        self['滚筒间距']=Attr(20,obvious=True,group='滚筒')
        self['皮带材质']=Attr(0,obvious=True,group='皮带') # 似乎没用到
        self['皮带厚度']=Attr(20,obvious=True,group='皮带')
-       self['驱动方式']=Attr(0,obvious=True,group='驱动')# TODO
-       self['电机功率']=Attr(1000,obvious=True,group='驱动')# TODO
-       self['传送速度']=Attr(1000,obvious=True,group='驱动')# TODO
+       self['驱动方式']=Attr('头部驱动',obvious=True,group='驱动',combo=['头部驱动','中心驱动'])
+       self['电机功率(W)']=Attr(1000,obvious=True,group='驱动')
+       self['传送速度(m/s)']=Attr(1,obvious=True,group='驱动')
        self['是否带支架']=Attr(True,obvious=True,group='支架')
        self['支架间距']=Attr(1000,obvious=True,group='支架')
        self['支架离地高度(低端)']=Attr(1000,obvious=True,group='支架')
@@ -93,32 +93,38 @@ class 直线传送带(Component):
        头尾滚筒总成=Combine(Cone1,Cone2).color(0.1,0.2,0.3,1)
        
        # 4.支撑腿总成  仅在是否带支架为True时生成。通常为H型结构，可调节高度。
-       if self['是否带支架']:
-            # 获取尺寸字符串
-           size_str = self['支架型材尺寸']  # '100*100'
-           length,width = size_str.split('*')
-           width_num = int(width)
-           length_num = int(length)
-           bracket_d=self['支架间距']
-           bracket_h=self['支架离地高度(低端)']
-           bracket_num=int(floor(L*cos(angle/180*pi) /bracket_d ) + 1)
-           bracket_w=W+2*frame_t-width_num
-           brackets=createBrackets(bracket_num,bracket_d,bracket_w,length_num,width_num,bracket_h,angle)
-           templ=L*cos(angle/180*pi)-length_num-(bracket_num-1)*bracket_d
-           brackets=trans(templ/2,0,-bracket_h+100+(templ/2+length_num)*tan(angle/180*pi))*brackets
-           支撑架=Combine(brackets)
+        # 获取尺寸字符串
+       size_str = self['支架型材尺寸']  # '100*100'
+       length,width = size_str.split('*')
+       width_num = int(width)
+       length_num = int(length)
+       bracket_d=self['支架间距']
+       bracket_h=self['支架离地高度(低端)']
+       bracket_num=int(floor(L*cos(angle/180*pi) /bracket_d ) )
+       bracket_w=W+2*frame_t-width_num
+       brackets=createBrackets(bracket_num,bracket_d,bracket_w,length_num,width_num,bracket_h,angle)
+       templ=L*cos(angle/180*pi)-length_num-(bracket_num-1)*bracket_d
+       brackets=trans(templ/2,0,-bracket_h+100+(templ/2+length_num)*tan(angle/180*pi))*brackets
+       支撑架=Combine(brackets)
           
-       # TODO：5.驱动单元 : 包括电机和减速器，根据驱动方式安装在头部或中部。
-       # 驱动方式参数决定了驱动单元(5)的装配位置。
-       驱动单元=Cube()
+       # 5.驱动单元
+       temp=trans(L-1.9*frame_h,-120+frame_t,-(frame_h+1/4*bracket_h)+frame_h)*\
+       createMotor(frame_h*2.4,120,frame_h+1/4*bracket_h,(frame_h+1/4*bracket_h)/4,frame_h,W/4).\
+           color(0.3,0.3,0.3,1)
+       if self['驱动方式']=="头部驱动":
+           驱动单元=temp
+       else :
+           驱动单元=trans(-L+1.9*frame_h+templ/2+length_num,W/3,-frame_h)*temp 
        # 6.倾斜角度
        框架总成=roty(-angle/180*pi)*框架总成
        承载面=roty(-angle/180*pi)*承载面
        头尾滚筒总成=roty(-angle/180*pi)*头尾滚筒总成
-       
+       驱动单元=roty(-angle/180*pi)*驱动单元
+    
        self['直线传送带']=Combine(框架总成,承载面,头尾滚筒总成,驱动单元)
        if self['是否带支架']:
            self['直线传送带']=Combine(self['直线传送带'],支撑架)
+    
     
 def createRoller(roller_r,roller_w,x,y,z):
         cone=trans(x,y,z)*Cone(Vec3(0,0,0),Vec3(0,roller_w,0),roller_r,roller_r)
@@ -143,7 +149,14 @@ def createBrackets(num,bracket_d,bracket_w,l,w,h,angle):
             brackets.append(trans(i*bracket_d,0,0)*foot1)
             brackets.append(trans((i-1)*bracket_d,0,0)*trans(l,bracket_w/2,10)*scale(bracket_d-l,100,50)*Cube())
         return Combine(brackets)
-       
+
+def createMotor(l,w,h,r,frame_h,cone_l):
+    box1=scale(l,w,h)*Cube()
+    box2=trans(l-2*r,w-1,h-frame_h-2*r)*scale(2*r,w,2*r)*Cube()
+    r=r*0.8
+    cone1=trans(l-r,2*w-1,h-frame_h-r*1.2)*Cone(Vec3(0,0,0),Vec3(0,cone_l,0),r,r)
+    cone2=trans(l-r,2*w-1+cone_l,h-frame_h-r*1.2)*Cone(Vec3(0,0,0),Vec3(0,0.25*cone_l,0),r*1.2,r*1.2)
+    return Combine(box1+box2,cone1,cone2)
         
 if __name__ == "__main__":
     final=直线传送带()

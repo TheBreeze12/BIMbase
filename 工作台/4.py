@@ -16,9 +16,9 @@ class 转弯传送带(Component):
         self['滚筒直径']=Attr(40,obvious=True,group='滚筒')
         self['滚筒间距']=Attr(20,obvious=True,group='滚筒')
         self['滚筒类型']=Attr("Straight",obvious=True,group='滚筒',combo=['Tapered', 'Straight'])# TODO
-        self['驱动方式']=Attr(0,obvious=True,group='驱动')# TODO
-        self['电机功率']=Attr(0,obvious=True,group='驱动')# TODO
-        self['传送速度']=Attr(0,obvious=True,group='驱动')# TODO
+        self['驱动方式']=Attr('头部驱动',obvious=True,group='驱动',combo=['头部驱动','中心驱动'])
+        self['电机功率(W)']=Attr(1000,obvious=True,group='驱动')
+        self['传送速度(m/s)']=Attr(1,obvious=True,group='驱动')
         self['是否带支架']=Attr(True,obvious=True,group='支架')
         self['支架离地高度']=Attr(1000,obvious=True,group='支架')
         self['支架数量']=Attr(2,obvious=True,group='支架')
@@ -81,6 +81,9 @@ class 转弯传送带(Component):
            
        # 滚筒阵列 : 如果传送带类型为滚筒，则此部件由一系列平行排列的滚筒组成。
         else:
+       # TODO:若为滚轮，则先创建一个滚筒子模型（滚筒直径，长度为Belt_Width）。然后，沿中心线弧路径，根据滚筒间距进行环形阵列，生成滚筒阵列。如果滚筒间距为Tapered，则滚筒应为锥形。
+       # 对于锥形滚筒，可以绘制一个梯形截面，然后进行旋转操作生成。锥度应经过计算，以确保在转弯时内外侧的线速度匹配，公式为：内侧直径/外侧直径 = 内侧半径/外侧半径。
+
            roller_d=self['滚筒直径']
            roller_r=roller_d/2
            gap=self['滚筒间距']
@@ -108,9 +111,8 @@ class 转弯传送带(Component):
            bracket_w=W+2*frame_t-width_num
            brackets=trans(0,0,-bracket_h+100)*createBrackets(bracket_num,A,bracket_w,length_num,width_num,bracket_h,r-frame_t,center_r)
            支撑架=Combine(brackets)        
-        # TODO：5.驱动单元 : 包括电机和减速器，根据驱动方式安装在头部或中部。
-        # 驱动方式参数决定了驱动单元(5)的装配位置。
-        驱动单元=Cube()
+        # 5.驱动单元
+        驱动单元=createMotor()
         
         self['转弯传送带']=Combine(框架总成,承载面,头尾滚筒总成,驱动单元)
         if self['是否带支架']:
@@ -145,6 +147,9 @@ def createBrackets(num,A,bracket_w,l,w,h,r,center_r):
     return Combine(brackets)
 
 
+def createMotor():
+    # TODO
+    return 
 
 if __name__=="__main__":
     fianl=转弯传送带()
