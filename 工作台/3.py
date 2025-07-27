@@ -4,10 +4,9 @@ from pyp3d import *
 class 直线传送带(Component):
     def __init__(self):
        Component.__init__(self)
-       # TODO
        self['传送带长度']=Attr(3000,obvious=True,group='承载面')
        self['传送带宽度']=Attr(1000,obvious=True,group='承载面')
-       self['倾斜角度']=Attr(0,obvious=True,group='承载面')# TODO
+       self['倾斜角度']=Attr(0,obvious=True,group='承载面')
        self['传送带类型']=Attr('皮带+滑板',obvious=True,group='承载面',combo=['皮带+滑板','滚筒阵列'])
        self['框架型材高度']=Attr(200,obvious=True,group='框架')
        self['框架型材厚度']=Attr(30,obvious=True,group='框架')
@@ -24,7 +23,7 @@ class 直线传送带(Component):
        self['支架间距']=Attr(1000,obvious=True,group='支架')
        self['支架离地高度(低端)']=Attr(1000,obvious=True,group='支架')
        self['支架型材尺寸']=Attr('100*100',obvious=True,group='支架',combo=['100*100','100*200','100*300'])
-       self['运行状态']=Attr(0,obvious=True,group='运行')# TODO
+       self['运行状态']=Attr(0,obvious=True,group='运行')
        self['直线传送带']=Attr(None,show=True)
        self.replace()
     @export
@@ -84,7 +83,6 @@ class 直线传送带(Component):
            cones = Array(cone1)
            for i in linspace(Vec3(0,0,0),Vec3(L-roller_d,0,0),roller_num): 
                cones.append(translate(i)) 
-           # 链条
            
            承载面=Combine(cones)
       
@@ -103,16 +101,17 @@ class 直线传送带(Component):
            length_num = int(length)
            bracket_d=self['支架间距']
            bracket_h=self['支架离地高度(低端)']
-           bracket_num=int(floor(L /(bracket_d+length_num) ) + 1)
+           bracket_num=int(floor(L*cos(angle/180*pi) /bracket_d ) + 1)
            bracket_w=W+2*frame_t-width_num
-           brackets=createBrackets(bracket_num,bracket_d,bracket_w,length_num,width_num,bracket_h)
-           templ=L-bracket_num*length_num-(bracket_num-1)*bracket_d
-           brackets=trans(templ/2,0,-bracket_h+100)*brackets
+           brackets=createBrackets(bracket_num,bracket_d,bracket_w,length_num,width_num,bracket_h,angle)
+           templ=L*cos(angle/180*pi)-length_num-(bracket_num-1)*bracket_d
+           brackets=trans(templ/2,0,-bracket_h+100+(templ/2+length_num)*tan(angle/180*pi))*brackets
            支撑架=Combine(brackets)
-           # TODO：倾斜角度的处理
+          
        # TODO：5.驱动单元 : 包括电机和减速器，根据驱动方式安装在头部或中部。
+       # 驱动方式参数决定了驱动单元(5)的装配位置。
        驱动单元=Cube()
-       # TODO：倾斜角度
+       # 6.倾斜角度
        框架总成=roty(-angle/180*pi)*框架总成
        承载面=roty(-angle/180*pi)*承载面
        头尾滚筒总成=roty(-angle/180*pi)*头尾滚筒总成
@@ -124,7 +123,7 @@ class 直线传送带(Component):
 def createRoller(roller_r,roller_w,x,y,z):
         cone=trans(x,y,z)*Cone(Vec3(0,0,0),Vec3(0,roller_w,0),roller_r,roller_r)
         return cone
-def createBrackets(num,bracket_d,bracket_w,l,w,h):
+def createBrackets(num,bracket_d,bracket_w,l,w,h,angle):
         temph=h-100
         bracket1=trans(0,bracket_w,0)*scale(l,w,temph)*Cube()+scale(l,w,temph)*Cube()
         cube1=trans(0,w,temph-50)*scale(l,bracket_w-w,50)*Cube()
@@ -134,19 +133,16 @@ def createBrackets(num,bracket_d,bracket_w,l,w,h):
         foot1=trans(l/2,w/2,-100)*Combine(Cone(Vec3(0,0,50),Vec3(0,0,100),15,15),Cone(Vec3(0,0,0),Vec3(0,0,50),w/2,20).color(0,0,0,1))
         foot1=Combine(foot1,trans(0,bracket_w,0)*foot1)
         brackets=[]
-        links=[]
-        foots=[]
-        boxs=[]
-        links.append(link1)
+        brackets.append(link1)
         brackets.append(bracket1)
-        foots.append(foot1)
+        brackets.append(foot1)
         for i in range(1, num):  # 从1开始，因为第一个支架已经添加了
-            brackets.append(trans(i*bracket_d,0,0)*bracket1)
-            links.append(trans(i*bracket_d,0,0)*link1)
-            foots.append(trans(i*bracket_d,0,0)*foot1)
-            boxs.append(trans((i-1)*bracket_d,0,0)*trans(l,bracket_w/2,10)*scale(bracket_d-l,100,50)*Cube())
-            
-        return Combine(brackets,links,foots,boxs)
+            temph=h-100+i * bracket_d * tan(angle/180*pi)
+            brackets.append(trans(i*bracket_d,0,0)*(trans(0,bracket_w,0)*scale(l,w,temph)*Cube()+scale(l,w,temph)*Cube()))
+            brackets.append(trans(i*bracket_d,0,0)*link1)
+            brackets.append(trans(i*bracket_d,0,0)*foot1)
+            brackets.append(trans((i-1)*bracket_d,0,0)*trans(l,bracket_w/2,10)*scale(bracket_d-l,100,50)*Cube())
+        return Combine(brackets)
        
         
 if __name__ == "__main__":
